@@ -14,6 +14,9 @@ models_pl = [
 def load_model(chosen_model='codegen-350M-mono',
                fp16=False,
                pad=50256):
+    """
+    !wget -P checkpoints https://storage.googleapis.com/sfr-codegen-research/checkpoints/codegen-350M-mono.tar.gz && tar -xvf checkpoints/codegen-350M-mono.tar.gz -C checkpoints/
+    """
     ckpt = f'./checkpoints/{chosen_model}'
     model = create_model(ckpt=ckpt, fp16=fp16).to(torch.device('cpu')).eval()
     model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear},
