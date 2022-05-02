@@ -83,8 +83,8 @@ def include_tabs(t, n_min=2, n_max=20, as_special_tokens=False):
 
 def create_custom_gpt2_tokenizer():
     t = create_tokenizer()
-    # t = include_whitespace(t=t, n_min=2, n_max=32, as_special_tokens=False)
-    # t = include_tabs(t=t, n_min=2, n_max=10, as_special_tokens=False)
+    t = include_whitespace(t=t, n_min=2, n_max=32, as_special_tokens=False)
+    t = include_tabs(t=t, n_min=2, n_max=10, as_special_tokens=False)
     return t
 
 
