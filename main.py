@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from model import print_time, tokenizer, model, predict
+from onnx_model import predict
 
 app = FastAPI()
 
@@ -9,6 +9,9 @@ async def get_root():
 
 @app.post('/api/codegen')
 async def post_api_codegen(request: Request):
+    """
+    curl localhost:8000/api/codegen -H 'Content-Type: application/json' -d '{"inputs": "def avg(arr):\n\t"}'
+    """
     body = await request.json()
     if not isinstance(body, dict):
         return dict(error='Invalid request body')
@@ -17,7 +20,7 @@ async def post_api_codegen(request: Request):
         return dict(error='Invalid request body inputs')
     context = inputs
     print('context', context)
-    results = predict(tokenizer, model, context, max_length=128)
+    results = predict(context)
     print('results', type(results), results)
     return [
         {'generated_text': x} for x in results.split('\n') if len(x) > 0

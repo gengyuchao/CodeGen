@@ -1,5 +1,5 @@
 import os
-import math
+import time
 
 import numpy as np
 from tqdm import tqdm
@@ -8,8 +8,6 @@ from onnxruntime import (
     SessionOptions, get_all_providers
 )
 from transformers import GPT2TokenizerFast
-
-CURERENT_DIR = os.path.realpath(os.path.dirname(__file__))
 
 
 def create_model_for_provider(
@@ -53,10 +51,6 @@ def create_custom_gpt2_tokenizer():
     return t
 
 
-tokenizer = create_custom_gpt2_tokenizer()
-model = create_model_for_provider('outq.onnx')
-
-
 def predict(context, max_length=512, max_lines=3):
     tokenized = tokenizer(context)
     input_ids = tokenized['input_ids']
@@ -72,13 +66,20 @@ def predict(context, max_length=512, max_lines=3):
         outputs += tokenizer.decode([token])
         if len(outputs.strip().split('\n')) >= max_lines:
             break
-        if len(outputs.lstrip()) > 0 and outputs.endswith('\n'):
+        if len(outputs.lstrip()) > 0 and outputs.endswith('\n\n'):
             break
     return outputs
 
 
+start_time = time.time()
+print('model loading')
+CURERENT_DIR = os.path.realpath(os.path.dirname(__file__))
+tokenizer = create_custom_gpt2_tokenizer()
+model = create_model_for_provider(os.path.join(CURERENT_DIR, 'outq.onnx'))
+print(f'model loaded {time.time() - start_time}')
+
+
 if __name__ == '__main__':
-    import time
     context = 'def avg(arr):'
     start = time.time()
     output = predict(context)
