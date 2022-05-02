@@ -7,5 +7,5 @@ def
 '''
 
 with print_time('predict'):
-    print(predict(tokenizer, model, context, max_length=1024))
+    print(context + predict(tokenizer, model, context, max_length=1024))
     print()
