@@ -23,7 +23,7 @@ async def post_api_codegen(request: Request):
     results = predict(context)
     print('results', type(results), results)
     return [
-        {'generated_text': x} for x in results.split('\n') if len(x) > 0
+        {'generated_text': results }
     ]
 
 print('start')

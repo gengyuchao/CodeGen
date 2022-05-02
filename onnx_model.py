@@ -51,12 +51,12 @@ def create_custom_gpt2_tokenizer():
     return t
 
 
-def predict(context, max_length=512, max_lines=3):
+def predict(context, max_length=128, max_lines=10):
     tokenized = tokenizer(context)
     input_ids = tokenized['input_ids']
     outputs = ''
     pkv = np.zeros([40, 16, 1, 64]).astype(np.float32)
-    for i in range(max_length):
+    for _ in range(max_length):
         out, pkv = model.run(['output', 'pkv_output'], {
             "input": np.array([input_ids]),
             'pkv': pkv
