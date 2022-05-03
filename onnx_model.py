@@ -1,5 +1,6 @@
 import os
 import time
+from tkinter import CURRENT
 
 import numpy as np
 from tqdm import tqdm
@@ -28,8 +29,8 @@ def create_model_for_provider(
 
 # from jaxformer.hf.sample import create_custom_gpt2_tokenizer
 
-def create_tokenizer():
-    t = GPT2TokenizerFast.from_pretrained('gpt2')
+def create_tokenizer(location='gpt2'):
+    t = GPT2TokenizerFast.from_pretrained(location)
     t.max_model_input_sizes['gpt2'] = 1e20
     return t
 
@@ -44,8 +45,8 @@ def include_tabs(t, n_min=2, n_max=20, as_special_tokens=False):
     return t
 
 
-def create_custom_gpt2_tokenizer():
-    t = create_tokenizer()
+def create_custom_gpt2_tokenizer(location='gpt2'):
+    t = create_tokenizer(location=location)
     t = include_whitespace(t=t, n_min=2, n_max=32, as_special_tokens=False)
     t = include_tabs(t=t, n_min=2, n_max=10, as_special_tokens=False)
     return t
@@ -58,7 +59,7 @@ def predict(context, max_length=128, max_lines=10):
     pkv = np.zeros([40, 16, 1, 64]).astype(np.float32)
     for _ in range(max_length):
         out, pkv = model.run(['output', 'pkv_output'], {
-            "input": np.array([input_ids]),
+            "input": np.array([input_ids]).astype(np.int64),
             'pkv': pkv
         })
         token = out[:, -1, :].argmax()
@@ -74,7 +75,11 @@ def predict(context, max_length=128, max_lines=10):
 start_time = time.time()
 print('model loading')
 CURERENT_DIR = os.path.realpath(os.path.dirname(__file__))
-tokenizer = create_custom_gpt2_tokenizer()
+tokenizer_path = os.path.join(CURERENT_DIR, 'gpt2_tokenizer_fast')
+if os.path.exists(tokenizer_path):
+    tokenizer = create_custom_gpt2_tokenizer(tokenizer_path)
+else:
+    tokenizer = create_custom_gpt2_tokenizer()
 model = create_model_for_provider(os.path.join(CURERENT_DIR, 'outq.onnx'))
 print(f'model loaded {time.time() - start_time}')
 
