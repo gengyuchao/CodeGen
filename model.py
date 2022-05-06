@@ -60,16 +60,125 @@ def predict(tokenizer, model, context, p=0.95, t=0.2, max_length=128, batch_size
 with print_time('load model'):
     tokenizer, model = load_model()
 
+import torch
+from torch import nn
+from torch.nn import functional as F
 import numpy as np
 
+
+class MGPT(nn.Module):
+    def __init__(self, model):
+        super(MGPT, self).__init__()
+        self.model = model
+
+    def forward(self, input_ids = None, past_key_values = None):
+        if past_key_values is not None:
+            past_key_values = torch.unbind(past_key_values)
+            past_key_values = [torch.unbind(x) for x in past_key_values]
+        out = self.model(input_ids=input_ids, past_key_values=past_key_values)
+        # [20, 2, 1, 16, x, 64]
+        # dim 4 is free
+        past_key_values = out.past_key_values
+        past_key_values = torch.stack([torch.stack(x) for x in past_key_values])
+
+        return out.logits, past_key_values
+
+
+class MGPT_Multi(nn.Module):
+    def __init__(self, model):
+        super(MGPT_Multi, self).__init__()
+        self.model = model
+
+    def forward(self, input_ids = None, past_key_values = None):
+        if past_key_values is not None:
+            past_key_values = torch.unbind(past_key_values)
+            past_key_values = [torch.unbind(x) for x in past_key_values]
+        out = self.model(input_ids=input_ids, past_key_values=past_key_values)
+        probs = F.softmax(out.logits[:, -1, :], dim=-1)
+        next_inputs_ids = torch.multinomial(probs, 1)
+        outputs = []
+        outputs.append(next_inputs_ids)
+        for i in range(63):
+            probs = F.softmax(out.logits[:, -1, :], dim=-1)
+            next_inputs_ids = torch.multinomial(probs, 1)
+            # next_inputs_ids = out.logits[:, -1:, :].argmax(-1)
+            outputs.append(next_inputs_ids)
+            out = self.model(
+                input_ids=next_inputs_ids,
+                past_key_values=out.past_key_values
+            )
+        # [20, 2, 1, 16, x, 64]
+        # dim 4 is free
+        past_key_values = out.past_key_values
+        past_key_values = torch.stack([torch.stack(x) for x in past_key_values])
+
+        return torch.cat(outputs, dim=-1), past_key_values
+
+
+def export_multi():
+    """
+    无法导出，会卡在导出命令上
+    """
+    global model
+    os.environ['EXPORT'] = 'ok'
+    context = '''def is_prime(n):'''
+    tokenized = tokenizer(context)
+    input_ids = torch.LongTensor([tokenized['input_ids']])
+    all_ids = []
+    # axis=4 is dynamic
+    pkv = torch.zeros([20, 2, 1, 16, 1, 64])
+    # num = torch.LongTensor([50])
+    model = MGPT_Multi(model)
+
+    # output, pkv = model(torch.LongTensor([input_ids]), pkv, torch.LongTensor([50]))
+    # breakpoint()
+
+    for i in tqdm(range(3)):
+        output, pkv = model(input_ids, pkv)
+        print(pkv.shape)
+        tokens = output.detach().numpy()[0]
+        all_ids += output.detach().numpy()[0].tolist()
+        input_ids = output
+
+    print(all_ids)
+    print(tokenizer.decode(all_ids))
+
+    print()
+    print('start export')
+    input_ids = torch.LongTensor([tokenized['input_ids']])
+    pkv = torch.zeros([20, 2, 1, 16, 1, 64])
+    num = torch.LongTensor([50])
+    torch.onnx.export(
+        model,               # model being run
+        (input_ids, pkv),                         # model input (or a tuple for multiple inputs)
+        "out_multi.onnx",   # where to save the model (can be a file or file-like object)
+        export_params=True,        # store the trained parameter weights inside the model file
+        opset_version=13,          # the ONNX version to export the model to
+        do_constant_folding=True,  # whether to execute constant folding for optimization
+        input_names = ['input', 'pkv'],   # the model's input names
+        output_names = ['output', 'pkv_output'], # the model's output names
+        dynamic_axes={
+            'input' : {0 : 'batch_size', 1 : 'seq_len'},    # variable length axes
+            'output' : {0 : 'batch_size', 1 : 'seq_len'},
+            'pkv': {4: 'seq_len'},
+            'pkv_output': {4: 'seq_len'},
+        }
+    )
+    print('done')
+
 def export():
+    global model
     os.environ['EXPORT'] = 'ok'
     context = '''def is_prime(n):'''
     tokenized = tokenizer(context)
     input_ids = tokenized['input_ids']
     all_ids = []
-    # axis=2 is dynamic
-    pkv = torch.zeros([40, 16, 1, 64])
+    # axis=4 is dynamic
+    pkv = torch.zeros([20, 2, 1, 16, 1, 64])
+    model = MGPT(model)
+
+    # output, pkv = model(torch.LongTensor([input_ids]), pkv, torch.LongTensor([50]))
+    # breakpoint()
 
     for i in tqdm(range(20)):
         output, pkv = model(torch.LongTensor([input_ids]), pkv)
@@ -96,8 +205,8 @@ def export():
         dynamic_axes={
             'input' : {0 : 'batch_size', 1 : 'seq_len'},    # variable length axes
             'output' : {0 : 'batch_size', 1 : 'seq_len'},
-            'pkv': {2: 'seq_len'},
-            'pkv_output': {2: 'seq_len'},
+            'pkv': {4: 'seq_len'},
+            'pkv_output': {4: 'seq_len'},
         }
     )
     print('done')
@@ -105,3 +214,4 @@ def export():
 
 if __name__ == '__main__':
     export()
+    # export_multi()

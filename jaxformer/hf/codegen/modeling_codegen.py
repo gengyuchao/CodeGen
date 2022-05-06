@@ -629,10 +629,6 @@ class CodeGenForCausalLM(CodeGenPreTrainedModel):
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        if os.environ.get("EXPORT") and past_key_values is not None:
-            past_key_values = torch.split(past_key_values, 2)
-            past_key_values = [torch.split(x, 1) for x in past_key_values]
-
         transformer_outputs = self.transformer(
             input_ids,
             past_key_values=past_key_values,
@@ -673,19 +669,13 @@ class CodeGenForCausalLM(CodeGenPreTrainedModel):
             output = (lm_logits,) + transformer_outputs[1:]
             return ((loss,) + output) if loss is not None else output
 
-        if os.environ.get("EXPORT"):
-            # pkv = transformer_outputs.past_key_values
-            pkv = [torch.cat(x) for x in transformer_outputs.past_key_values]
-            pkv = torch.cat(pkv)
-            return lm_logits, pkv
-        else:
-            return CausalLMOutputWithPast(
-                loss=loss,
-                logits=lm_logits,
-                past_key_values=transformer_outputs.past_key_values,
-                hidden_states=transformer_outputs.hidden_states,
-                attentions=transformer_outputs.attentions,
-            )
+        return CausalLMOutputWithPast(
+            loss=loss,
+            logits=lm_logits,
+            past_key_values=transformer_outputs.past_key_values,
+            hidden_states=transformer_outputs.hidden_states,
+            attentions=transformer_outputs.attentions,
+        )
 
     @staticmethod
     def _reorder_cache(past: Tuple[Tuple[torch.Tensor]], beam_idx: torch.Tensor) -> Tuple[Tuple[torch.Tensor]]:

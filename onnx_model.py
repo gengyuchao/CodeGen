@@ -1,6 +1,5 @@
 import os
 import time
-from tkinter import CURRENT
 
 import numpy as np
 from tqdm import tqdm
@@ -56,7 +55,8 @@ def predict(context, max_length=128, max_lines=10):
     tokenized = tokenizer(context)
     input_ids = tokenized['input_ids']
     outputs = ''
-    pkv = np.zeros([40, 16, 1, 64]).astype(np.float32)
+    pkv = np.zeros([20, 2, 1, 16, 1, 64]).astype(np.float32)
+    # pkv = np.zeros([40, 16, 1, 64]).astype(np.float32)
     for _ in range(max_length):
         out, pkv = model.run(['output', 'pkv_output'], {
             "input": np.array([input_ids]).astype(np.int64),
