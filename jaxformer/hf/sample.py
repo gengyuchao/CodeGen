@@ -177,6 +177,16 @@ def test_truncate():
 # main
 
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 def main():
 
     # (0) constants
@@ -197,7 +207,7 @@ def main():
     parser.add_argument('--t', type=float, default=0.2)
     parser.add_argument('--max-length', type=int, default=128)
     parser.add_argument('--batch-size', type=int, default=1)
-    parser.add_argument('--fp16', type=bool, default=True)
+    parser.add_argument('--fp16', type=str2bool, default=True)
     parser.add_argument('--pad', type=int, default=50256)
     parser.add_argument('--context', type=str, default='def helloworld():')
     args = parser.parse_args()
@@ -213,7 +223,8 @@ def main():
 
 
     # (3) load
-
+    print("args.fp16")
+    print(args.fp16)
     with print_time('loading parameters'):
         model = create_model(ckpt=ckpt, fp16=args.fp16).to(device)
 
@@ -228,7 +239,6 @@ def main():
 
 
     # (4) sample
-
     with print_time('sampling'):
         completion = sample(device=device, model=model, tokenizer=tokenizer, context=args.context, pad_token_id=args.pad, num_return_sequences=args.batch_size, temp=args.t, top_p=args.p, max_length_sample=args.max_length)[0]
         truncation = truncate(completion)
